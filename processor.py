@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from state import State
-from file_input import file_input
+from reader import file_input
 
 def process_nem12_file(file):
     current_nmi = None
@@ -56,7 +56,6 @@ def process_nem12_file(file):
                             state = State.ROW_900
                             if current_nmi and values:
                                 query_list.append(f"INSERT INTO meter_readings (nmi, timestamp, consumption) VALUES {', '.join(values)};")
-                                values = []
                         # 400 and 500 are ignored due to unnecessary data. This may result in uniquely malformed files being parsed anyway.
                         # To maintain readability and simplicity, I have chosen to ignore these cases in current state.
                         case '400' | '500':
@@ -64,15 +63,21 @@ def process_nem12_file(file):
                         case _:
                             raise ValueError(f"Unexpected row type on line {line_count}: Actual row: {row[0]}. Expected: 200, 300, 400, 500, or 900")
                 case _:
-                    expected_value = {
-                        State.START: '100',
-                        State.ROW_100: '200',
-                        State.ROW_200: '300',
-                        State.ROW_300: '200, 300, 400, 500, or 900',
-                    }.get(state)
-                    raise ValueError(f"Unexpected row type on line {line_count}: Actual row: {row[0]}. Expected: {expected_value}")
+                    if State.ROW_900:
+                        raise ValueError(f"Malformed file. There is data present after expected end of file on line {line_count}")
+                    else:
+                        expected_value = {
+                            State.START: '100',
+                            State.ROW_100: '200',
+                            State.ROW_200: '300',
+                            State.ROW_300: '200, 300, 400, 500, or 900',
+                        }.get(state)
+                        raise ValueError(f"Unexpected row type on line {line_count}: Actual row: {row[0]}. Expected: {expected_value}")
 
     except IndexError as e:
         raise ValueError(f"IndexError on line {line_count}: {str(e)}")
+    
+    if state != State.ROW_900:
+        raise ValueError(f"Malformed file. Final row should be: 900. Actual row type: {row[0]}")
 
     return query_list

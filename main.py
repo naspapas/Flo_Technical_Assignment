@@ -1,7 +1,7 @@
 import sys
 import logging
-from process_nem12_file import process_nem12_file
-from output import write_sql_statements
+from processor import process_nem12_file
+from writer import write_sql_statements
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
